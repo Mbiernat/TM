@@ -1,19 +1,21 @@
 #include  <msp430g2553.h>       // zmienic header
 
-
+//-----------------------------------------------------------------
 #define LED0	BIT0
 #define LED1	BIT1
 
 
 
+//-----------------------------------------------------------------
+// Inicjalizacja programu
 int _system_pre_init(void)
 {
     
-    P1DIR |= LED0;				// P1.0 (LED0) -> Output
-    P1DIR |= LED1;				// P1.1 (LED1) -> Output
+    P1DIR |= LED0;			// P1.0 (LED0) -> Output
+    P1DIR |= LED1;			// P1.1 (LED1) -> Output
     // itd.
     
-    P1DIR &= ~BIT3;				// P1.3 (SW2) -> Input
+    P1DIR &= ~BIT3;			// P1.3 (SW2) -> Input
     
     /* Insert your low-level initializations here */
     WDTCTL = WDTPW + WDTHOLD; // Stop Watchdog timer
@@ -24,6 +26,8 @@ int _system_pre_init(void)
     /* 1 to run initialization */
     /*==================================*/
 }
+
+//-----------------------------------------------------------------
 
 int main(void)
 {
