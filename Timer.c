@@ -44,4 +44,4 @@ void main(void)
 __interrupt void Timer_A (void)
 {
 	P1OUT ^= BIT0;					// Toggle LED
-}
+} 
