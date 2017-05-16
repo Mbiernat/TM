@@ -38,7 +38,6 @@ int main(void)
 	{
 		_BIS_SR(LPM3_bits + GIE);			// Enter LPM3
 		
-		countSeconds();
 	}
 
 
@@ -60,18 +59,28 @@ __interrupt void Timer_A (void)
 	
 	// Odpalenie Timer_B
 	TBCCTL0 = CCIE;				// TBCCR0 interrupt enabled
-	TBCCR0 = 511;				// po sekundzie będzie interrupt aby zmienic 
+	TBCCR0 = 511;				// po sekundzie będzie interrupt aby zmienic wyświetlane dane
 	TBCTL = TASSEL_1 + ID_3 + MC_1;		// ACLK, /8, upmode
 	
 	P1IE  |= BIT1;				// Odblokuj przerwania na P1.0 aby móc zastopować liczenie
 	
+	// Ustaw czas 0.0 na wyświetlaczu
+	
+	//-----------------------------
+	
 	
 }
 
+// Stoper
 #pragma vector=TIMER0_B0_VECTOR
 __interrupt void Timer_B (void)
 {
+	// nie wiem czy to co jest w timerze po doliczeniu do TBCCR0 się samo resetuje czy nie
+	TBCCR0 = 511;				// po sekundzie będzie interrupt aby zmienic
 	
+	// kod do zmiany na wyświetlaczu
+	
+	//-------
 }
 
 #pragma vector=PORT1_VECTOR
@@ -93,8 +102,3 @@ __interrupt void Port_1(void)
 		
 	
 } 
-
-void countSeconds()
-{
-	
-}
