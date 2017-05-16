@@ -1,0 +1,11 @@
+Na TM 4
+- wyświetlanie czasu który upłynął od wystąpienia sygnału do kliknięcia przycisku
+- wyświetlanie na 8xLED przycisku który należy wcisnąć aby zastopować liczenie
+- dodatkowy przełącznik do stopowania generowania sygnału
+
+Do obliczania sekund użyć ACLK 32kHz
+
+Przerwania:
+- do zmiany wyświetlanego czasu na wyświetlaczu
+- do stopowania upływu czasu
+- do zmiany trybu miernika (generuje sygnał lub nie) 
