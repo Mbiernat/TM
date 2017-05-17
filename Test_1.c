@@ -7,11 +7,14 @@ int _system_pre_init(void)
 	//Przyciski:
 	//  0: start
 	//  1: stopuj liczenie
-    	P1DIR &= ~BIT0 + ~BIT1;		// P1.0,1 -> input
+	
+    //	P1DIR &= ~BIT0 + ~BIT1;		// P1.0,1 -> input
+	P1DIR &= 0x00; 			// Po prostu cały port1 jako input (zera w P1DIR)
+	
 	P1IE  |= BIT0;			// Odblokuj przerwania na P1.0
 	P1IES |= BIT0;			// Ustaw zglaszanie przerwania na bicie 0 zboczem rosnacym
 	
-	P2DIR |= BIT0;			//Dioda 0 -> output
+	P2DIR |= 0xFF;			//Port2 jako output dla diod
 
     
 	/* Insert your low-level initializations here */
@@ -29,14 +32,21 @@ int _system_pre_init(void)
 int main(void)
 {
 	
-	BCSCTL1 |= DIVA_3;				// ACLK/8
-	BCSCTL3 |= XCAP_3;				//12.5pF cap- setting for 32768Hz crystal
-
+	//------------------------------ 
+	// TO CHYBA MOŻNA W INIT
+				// BCSCTL1 = Basic Clock System Control Register 1
+	BCSCTL1 |= DIVA_3;	// DIVA_x odpowiada za dzielenie częstotliwości dla 
+				// zegara ACLK, tutaj DIVA_3 = dzielenie przez 8
+	
+	BCSCTL3 |= XCAP_3;	//Oscillator capacitor selection - nie wiem po co to
+				//12.5pF cap- setting for 32768Hz crystal
+	//------------------------------
 	
 	
 	while(1)
 	{
 		_BIS_SR(LPM3_bits + GIE);			// Enter LPM3
+		__bis_SR_register(LPM3_bits + GIE); 		// <- alternatywnie
 		
 	}
 
@@ -54,8 +64,8 @@ __interrupt void Timer_A (void)
 	P2OUT &= ~BIT0; 		// gaszenie diody 0
 	
 	// zatrzymanie Timer_A
-	TACCTL0 = ~CCIE + ~CCIFG;		// TACCR0 interrupt disabled, CCIFG = 0
-	TACTL = MC_0;				// Timer_A halt
+	TACCTL0 = ~CCIE + ~CCIFG;		// TACCR0 interrupt disabled + CCIFG = 0
+	TACTL = MC_0;				// MC_0 = Timer_A halt
 	
 	// Odpalenie Timer_B
 	TBCCTL0 = CCIE;				// TBCCR0 interrupt enabled
@@ -64,9 +74,11 @@ __interrupt void Timer_A (void)
 	
 	P1IE  |= BIT1;				// Odblokuj przerwania na P1.0 aby móc zastopować liczenie
 	
+	
+	//-------------------------------
 	// Ustaw czas 0.0 na wyświetlaczu
 	
-	//-----------------------------
+	//-------------------------------
 	
 	
 }
@@ -76,17 +88,21 @@ __interrupt void Timer_A (void)
 __interrupt void Timer_B (void)
 {
 	// nie wiem czy to co jest w timerze po doliczeniu do TBCCR0 się samo resetuje czy nie
-	TBCCR0 = 511;				// po sekundzie będzie interrupt aby zmienic
+	//edit: samo się powinno resetować
+	TBCCR0 = 511;				// po sekundzie będzie interrupt aby zmienic to co na wyświetlaczu
 	
+	
+	//--------------------------------
 	// kod do zmiany na wyświetlaczu
 	
-	//-------
+	//--------------------------------
 }
 
 #pragma vector=PORT1_VECTOR
 __interrupt void Port_1(void)
 {
-	if(P1IN & ~BIT0) 	// Jeśli przycisk 0 wciśnięty   /chyba
+	if(!P1IN & ~BIT0) 	// Jeśli przycisk P1.0 wciśnięty   /chyba
+	if(!(P1IN & BIT0)) 	// <- alternatywnie
 	{
 		P2OUT |= BIT0;				// zapal diode na potwierdzenie że weszło przerwanie
 		TACCTL0 = CCIE;				// CCR0 interrupt enabled
@@ -96,7 +112,8 @@ __interrupt void Port_1(void)
 		P1IE  &= ~BIT0;				// Zablokuj przerwania na P1.0
 		// po naciścięciu 0 czekam 2 sekundy na pojawienie się sygnały start
 	}
-	if(P1IN & ~BIT1) 	// Jeśli przycisk 1 wciśnięty   /chyba	
+	if(P1IN & ~BIT1) 	// Jeśli przycisk P1.1 wciśnięty   /chyba
+	if(!(P1IN & BIT1)) 	// <- alternatywnie
 	{
 	}
 		
