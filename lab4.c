@@ -1,52 +1,161 @@
-#include  <msp430g2553.h>       // zmienic header
+#include  <msp430.h>
+#include <time.h>
 
 //-----------------------------------------------------------------
-#define LED0	BIT0
-#define LED1	BIT1
+void getRandomData();
 
+void initTimers();
+
+void setStopwatch();
+
+void setStopButton();
 
 
 //-----------------------------------------------------------------
+volatile char SEC_TO_HZ		// Do zamiany sekund na Hz
+
+volatile char numOfButton; 	// Numer przycisku, który trzeba wcisnąć
+unsigned char StopButton[] = {0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80}	// Kody przycisku do zatrzymywania stopera   
+	
+volatile char randomTime;	// Losowy czas, po którym odpalamy stoper
+	
+volatile char seconds;		// Sekundy liczone przez stoper
+volatile char miliseconds;	// Setne liczone przez stoper
+
+//-----------------------------------------------------------------
+
 // Inicjalizacja programu
-int _system_pre_init(void)
+void system_init(void)
 {
+	// Input
+	P1DIR &= 0x00; 			// Port1 - input - przyciski
+	P6DIR &= 0x00;			// Port6 - input - nastawniki hex
+	P1IE  |= BIT7;			// Odblokuj przerwania na P1.7
+	P1IES |= 0xFF;			// Ustaw zglaszanie przerwania zboczem rosnacym
+
+	// Output
+	P2DIR |= 0xFF;			//Port2 - output - wyświetlacz dane
+	P3DIR |= 0xFF;			//Port3 - output - wyświetlacz sterowanie
+	P4DIR |= 0xFF;     		//Port4 - output - diody
+
+	P2OUT &= 0x00;
+	P3OUT |= 0xFF;
+	P4OUT &= 0x00;
     
-    P1DIR |= LED0;			// P1.0 (LED0) -> Output
-    P1DIR |= LED1;			// P1.1 (LED1) -> Output
-    // itd.
-    
-    P1DIR &= ~BIT3;			// P1.3 (SW2) -> Input
-    
-    /* Insert your low-level initializations here */
-    WDTCTL = WDTPW + WDTHOLD; // Stop Watchdog timer
-    /*==================================*/
-    /* Choose if segment initialization */
-    /* should be done or not. */
-    /* Return: 0 to omit initialization */
-    /* 1 to run initialization */
-    /*==================================*/
+
+	WDTCTL = WDTPW + WDTHOLD; 	// Stop Watchdog timer
+}
+	
+void initTimers()
+{
+	TACTL |= TASSEL_1 + ID_1 + MC_1;	// 16384Hz -> 1s
+	TBCTL |= TASSEL_1 + ID_1 + MC_1;
+	
+	SEC_TO_HZ = 16384;
+	
+	seconds = 0;
+	miliseconds = 0;
 }
 
 //-----------------------------------------------------------------
 
 int main(void)
 {
+	system_init();
+	initTimers();
+	getRandomData();
 
-	BCSCTL1 |= DIVA_3;				// ACLK/8
-	BCSCTL3 |= XCAP_3;				//12.5pF cap- setting for 32768Hz crystal
-
-	CCTL0 = CCIE;					// CCR0 interrupt enabled
-	CCR0 = 511;					// 512 -> 1 sec, 30720 -> 1 min
-	TACTL = TASSEL_1 + ID_3 + MC_1;			// ACLK, /8, upmode
-
-	_BIS_SR(LPM3_bits + GIE);			// Enter LPM3 w/ interrupt
+	
+	while(1)
+	{
+		__enable_interrupt();
+		__bis_SR_register(LPM3_bits + GIE);
+		
+		
+		
+	}
     
     return 0;
 }
 
-// Timer A0 interrupt service routine
-#pragma vector=TIMER0_A0_VECTOR
-__interrupt void Timer_A (void)
+
+#pragma vector=PORT1_VECTOR
+__interrupt void Port_1(void)
 {
-	P1OUT ^= BIT0;					// Toggle LED
+	if( !(P1IN & BIT7) & (P1IFG & BIT7) )	// Początkowe uruchamianie licznika - od tego momentu liczenie losowych sekund	
+	{
+		setTimer_A0();
+	//	P1IFG &= ~BIT7;		// Wyzerowanie flagi przerwania P1.7
+		P1IE  &= ~BIT7;		// Zablokowanie przerwań na P1.7
+		// Odlicza losowy czas
+	} 
+	else 	// może trzeba jakiś jeszcze warunek
+	{
+		disableStopwatch();	// TO DO
+		waitForActivation();	// TO DO
+		
+		P1IFG &= 0x80;		// Wyzerowanie flag przerwań przycisków P1.0 - P1.6
+		P1IE  &= 0x80;		// Zablokowanie przerwań na P1.0 - P1.6
+	}	
+}
+
+void setTimer_A0()
+{
+	TACCTL0 |= CCIE;	// Odblokowanie przerwań Timer_A0
+	TACCR0 = randomTime;	// Licznik liczy do tego losowego czasu	
+}
+	
+void setStopwatch()
+{
+	// Timer A1 do liczenia
+	TACCTL1 |= CCIE;		// Odblokowanie przerwań Timer_A1
+	TACCR0 = SEC_TO_HZ/100;		// Licznik liczy co 1/100 sekundy
+	
+	// Timer B do wyświetlania - odświeżanie diod
+//	TBCCTL0 |= CCIE;		// Odblokowanie przerwań Timer_B0
+//	TBCCR0 = SEC_TO_HZ/50;		// Licznik liczy co 1/50 sekundy
+	
+//	TBCCTL1 |= CCIE;		// Odblokowanie przerwań Timer_B1
+//	TBCCR1 = SEC_TO_HZ/50;		// Licznik liczy co 1/50 sekundy
+	
+	// Odblokowanie przycisku do zatrzymywania 
+}
+
+void setStopButton()
+{
+	// Odblokowanie przycisku do zatrzymywania stopera
+	P1IE  = StopButton[numOfButton];	// Odblokowanie przerwania
+	P4OUT = StopButton[numOfButton];	// Zaświecenie diody odpowiadającej przyciskowi
+}
+
+// Timer A0 odlicza początkowy losowy czas
+#pragma vector=TIMERA0_VECTOR
+__interrupt void Timer_A0 (void)
+{
+	TACCTL0 = OUTMOD_5;	// Resetuje Timer_A0
+	TACCTL0 &= ~CCIE;	// Blokuje przerwania Timer_A0
+	TACCTL0 &= ~CCIFG;	// Resetuje flagę przewania
+	setStopwatch();
+	setStopButton();
+	
+}
+	
+// Timer A1 do zliczania setnych i sekund
+#pragma vector=TIMERA1_VECTOR
+__interrupt void Timer_A1 (void)	
+{
+	miliseconds++;
+	if(miliseconds > 99)
+	{
+		miliseconds = 0;
+		seconds++;
+	}
+}
+
+void getRandomData()
+{
+	srand(time(NULL));
+	randomTime = (rand() % 300)/100.0;	// otrzymamy czas w sekundach
+	randomTime *= SEC_TO_HZ; 		// Trzeba pomnożyć czas w sekundach żeby otrzymać w Hz dla zegara 
+	numOfButton = rand() % 7;		// Przyciski do stopowania od 0 do 6
 }
