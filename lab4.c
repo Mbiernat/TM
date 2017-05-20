@@ -85,7 +85,7 @@ __interrupt void Port_1(void)
 	if( !(P1IN & BIT7) & (P1IFG & BIT7) )	// Początkowe uruchamianie licznika - od tego momentu liczenie losowych sekund	
 	{
 		setTimer_A0();
-	//	P1IFG &= ~BIT7;		// Wyzerowanie flagi przerwania P1.7
+		P1IFG &= ~BIT7;		// Wyzerowanie flagi przerwania P1.7
 		P1IE  &= ~BIT7;		// Zablokowanie przerwań na P1.7
 		// Odlicza losowy czas
 	} 
@@ -101,6 +101,7 @@ __interrupt void Port_1(void)
 
 void setTimer_A0()
 {
+	// Wyzerować Timer_A
 	TACCTL0 |= CCIE;	// Odblokowanie przerwań Timer_A0
 	TACCR0 = randomTime;	// Licznik liczy do tego losowego czasu	
 }
@@ -109,15 +110,15 @@ void setStopwatch()
 {
 	// Timer A1 do liczenia
 	TACCTL1 |= CCIE;		// Odblokowanie przerwań Timer_A1
-	TACCR0 = CLOCK_HZ/100;		// Licznik liczy co 1/100 sekundy
+	TACCR1 = CLOCK_HZ/100;		// Licznik liczy co 1/100 sekundy
 	
 		// TO DO
 	// Timer B do wyświetlania - odświeżanie diod
 //	TBCCTL0 |= CCIE;		// Odblokowanie przerwań Timer_B0
-//	TBCCR0 = SEC_TO_HZ/50;		// Licznik liczy co 1/50 sekundy
+//	TBCCR0 = CLOCK_HZ/50;		// Licznik liczy co 1/50 sekundy
 	
 //	TBCCTL1 |= CCIE;		// Odblokowanie przerwań Timer_B1
-//	TBCCR1 = SEC_TO_HZ/50;		// Licznik liczy co 1/50 sekundy
+//	TBCCR1 = CLOCK_HZ/50;		// Licznik liczy co 1/50 sekundy
 	
 	// Odblokowanie przycisku do zatrzymywania 
 }
