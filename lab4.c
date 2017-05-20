@@ -27,6 +27,8 @@ volatile char miliseconds;	// Setne liczone przez stoper
 // Inicjalizacja programu
 void system_init(void)
 {
+	WDTCTL = WDTPW + WDTHOLD; 	// Stop Watchdog timer
+	
 	// Input
 	P1DIR &= 0x00; 			// Port1 - input - przyciski
 	P6DIR &= 0x00;			// Port6 - input - nastawniki hex
@@ -42,8 +44,6 @@ void system_init(void)
 	P3OUT |= 0xFF;			// 
 	P4OUT &= 0x00;			// Gaszenie diod
     
-
-	WDTCTL = WDTPW + WDTHOLD; 	// Stop Watchdog timer
 }
 	
 void initTimers()
