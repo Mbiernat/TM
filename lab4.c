@@ -12,10 +12,10 @@ void setStopButton();
 
 
 //-----------------------------------------------------------------
-volatile char SEC_TO_HZ		// Do zamiany sekund na Hz
+volatile char CLOCK_HZ;		// Do przechowania aktualnej częstości zegara
 
 volatile char numOfButton; 	// Numer przycisku, który trzeba wcisnąć
-unsigned char StopButton[] = {0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80}	// Kody przycisku do zatrzymywania stopera   
+unsigned char StopButton[] = {0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80};	// Kody przycisku do zatrzymywania stopera   
 	
 volatile char randomTime;	// Losowy czas, po którym odpalamy stoper
 	
@@ -34,13 +34,13 @@ void system_init(void)
 	P1IES |= 0xFF;			// Ustaw zglaszanie przerwania zboczem rosnacym
 
 	// Output
-	P2DIR |= 0xFF;			//Port2 - output - wyświetlacz dane
-	P3DIR |= 0xFF;			//Port3 - output - wyświetlacz sterowanie
-	P4DIR |= 0xFF;     		//Port4 - output - diody
+	P2DIR |= 0xFF;			// Port2 - output - wyświetlacz dane
+	P3DIR |= 0xFF;			// Port3 - output - wyświetlacz sterowanie
+	P4DIR |= 0xFF;     		// Port4 - output - diody
 
-	P2OUT &= 0x00;
-	P3OUT |= 0xFF;
-	P4OUT &= 0x00;
+	P2OUT |= 0xFF;			// Gaszenie wszystkich segmentów wyświetlacza
+	P3OUT |= 0xFF;			// 
+	P4OUT &= 0x00;			// Gaszenie diod
     
 
 	WDTCTL = WDTPW + WDTHOLD; 	// Stop Watchdog timer
@@ -51,7 +51,7 @@ void initTimers()
 	TACTL |= TASSEL_1 + ID_1 + MC_1;	// 16384Hz -> 1s
 	TBCTL |= TASSEL_1 + ID_1 + MC_1;
 	
-	SEC_TO_HZ = 16384;
+	CLOCK_HZ = 16384;
 	
 	seconds = 0;
 	miliseconds = 0;
@@ -109,8 +109,9 @@ void setStopwatch()
 {
 	// Timer A1 do liczenia
 	TACCTL1 |= CCIE;		// Odblokowanie przerwań Timer_A1
-	TACCR0 = SEC_TO_HZ/100;		// Licznik liczy co 1/100 sekundy
+	TACCR0 = CLOCK_HZ/100;		// Licznik liczy co 1/100 sekundy
 	
+		// TO DO
 	// Timer B do wyświetlania - odświeżanie diod
 //	TBCCTL0 |= CCIE;		// Odblokowanie przerwań Timer_B0
 //	TBCCR0 = SEC_TO_HZ/50;		// Licznik liczy co 1/50 sekundy
@@ -156,6 +157,6 @@ void getRandomData()
 {
 	srand(time(NULL));
 	randomTime = (rand() % 300)/100.0;	// otrzymamy czas w sekundach
-	randomTime *= SEC_TO_HZ; 		// Trzeba pomnożyć czas w sekundach żeby otrzymać w Hz dla zegara 
+	randomTime *= CLOCK_HZ; 		// Trzeba pomnożyć czas w sekundach żeby otrzymać w Hz dla zegara 
 	numOfButton = rand() % 7;		// Przyciski do stopowania od 0 do 6
 }
