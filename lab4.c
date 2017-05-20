@@ -25,8 +25,8 @@ volatile char seconds;		// Sekundy liczone przez stoper
 volatile char miliseconds;	// Setne liczone przez stoper
 
 volatile char refresh_id;	// Do wybierania który segment wyświetlacza odświeżamy
-unsigned char numOfDisplay[] = {0xFE, 0xFD, 0xFB, 0xF7};
-unsigned char displayedNum[] = {0xF0, 0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8, 0xF9};
+unsigned char numOfDisplay[] = {0xFE, 0xFD, 0xFB, 0xF7};					// Do wyboru segmentu wyświetlacza
+unsigned char displayedNum[] = {0xF0, 0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8, 0xF9};	// Do wyświetlania konkretnego numeru
 volatile char num;		// Zmienna pomocnicza
 
 //-----------------------------------------------------------------
