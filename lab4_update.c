@@ -16,6 +16,7 @@ void setTimer_A0();
 
 void disableStopwatch();
 
+void waitForActivation();
 
 //-----------------------------------------------------------------
 volatile int CLOCK_A_HZ;		// Do przechowania aktualnej czestosci zegara
@@ -30,7 +31,7 @@ volatile int seconds;		// Sekundy liczone przez stoper
 volatile int miliseconds;	// Setne liczone przez stoper
 
 volatile int refresh_id;	// Do wybierania który segment wyswietlacza odswiezamy
-unsigned int numOfDisplay[] = {0xFE, 0xFD, 0xFB, 0xF7};					// Do wyboru segmentu wyswietlacza
+unsigned int numOfDisplay[] = {0xFE, 0xFD, 0xFB, 0xF7};						// Do wyboru segmentu wyswietlacza
 unsigned int displayedNum[] = {0xF0, 0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8, 0xF9};	// Do wyswietlania konkretnego numeru
 volatile int num;		// Zmienna pomocnicza
 
@@ -99,7 +100,7 @@ __interrupt void Port_1(void)
 	}
 	else 	// moze trzeba jakis jeszcze warunek
 	{
-		disableStopwatch();	// TO DO
+		disableStopwatch();
 //		waitForActivation();	// TO DO
 
 		P1IFG &= 0x80;		// Wyzerowanie flag przerwan przycisków P1.0 - P1.6
@@ -110,7 +111,10 @@ __interrupt void Port_1(void)
 }
 
 void setTimer_A0()
-{
+{	
+	// DODANE:
+	TACTL |= TASSEL_1 + ID_1 + MC_1;	// 16384 Hz -> 1s
+	
 	// Wyzerowac Timer_A
 	TACCTL0 |= CCIE;	// Odblokowanie przerwan Timer_A0
 	TAR &= 0x00;		// Reset TAR zeby zaczac liczenie od 0
@@ -123,12 +127,22 @@ void setStopwatch()
 	// Timer A1 do liczenia
 	TACCTL1 |= CCIE;		// Odblokowanie przerwan Timer_A1
 	TAR &= 0x00;			// Reset TAR zeby zaczac liczenie od 0
+	
+	// DODANE:
+	TACTL |= TASSEL_1 + ID_1 + MC_1;	// 16384 Hz -> 1s
+	
 	TACCR1 = CLOCK_A_HZ;		// Licznik liczy co 1/100 sekundy
 
+	
+	
 	// Timer B do wyswietlania - odswiezanie diod
 	TBCCTL0 |= CCIE;		// Odblokowanie przerwan Timer_B0
 	TBR &= 0x00;			// Reset TBR zeby zaczac liczenie od 0
-//	TBCCR0 = (CLOCK_HZ*2)/160;		// Licznik liczy co 1/50 sekundy
+//	TBCCR0 = (CLOCK_HZ*2)/160;	// Licznik liczy co 1/50 sekundy
+	
+	// DODANE:
+	TBCTL |= TASSEL_1 + ID_0 + MC_1;	//32768 Hz -> 1s
+	
 	TBCCR0 = CLOCK_B_HZ;		// Licznik liczy co 1/50 sekundy
 
 	// Odblokowanie przycisku do zatrzymywania
@@ -145,7 +159,7 @@ void setStopButton()
 #pragma vector=TIMERA0_VECTOR
 __interrupt void Timer_A0 (void)
 {
-	TACCTL0 = OUTMOD_5;	// Resetuje Timer_A0
+//	TACCTL0 = OUTMOD_5;	// Resetuje Timer_A0
 	TACCTL0 &= ~CCIE;	// Blokuje przerwania Timer_A0
 	TACCTL0 &= ~CCIFG;	// Resetuje flage przewania
 	setStopwatch();
@@ -180,14 +194,11 @@ __interrupt void Timer_B0 (void)
 		case 0:		// Odswiez setne sekundy
 		{
 			if (miliseconds >=10)
-				{
-					num = miliseconds % 10;				// Jesli miliseconds = 48 dostajemy num = 8
-				}
+				num = miliseconds % 10;		// Jesli miliseconds = 48 dostajemy num = 8
 			else
-				{
-					num = miliseconds;
-				}
-			P3OUT = displayedNum[num];			// Wybór liczby do wyswietlenia na segment wyswietlacza
+				num = miliseconds;
+			
+			P3OUT = displayedNum[num];		// Wybór liczby do wyswietlenia na segment wyswietlacza
 			P2OUT = numOfDisplay[refresh_id];	// Wybór segmentu wyswietlacza
 			refresh_id++;
 			break;
@@ -195,13 +206,10 @@ __interrupt void Timer_B0 (void)
 		case 1:		// Odswiez dziesietne sekundy
 		{
 			if (miliseconds >=10)
-				{
-					num = miliseconds / 10;				// Jesli miliseconds = 48 dostajemy num = 4
-				}
+				num = miliseconds / 10;		// Jesli miliseconds = 48 dostajemy num = 4
 			else
-				{
-					num = 0;
-				}
+				num = 0;
+			
 			P3OUT = displayedNum[num];
 			P2OUT = numOfDisplay[refresh_id];
 			refresh_id++;
@@ -210,13 +218,10 @@ __interrupt void Timer_B0 (void)
 		case 2:		// Odswiez sekundy
 		{
 			if (seconds >=10)
-				{
-					num = seconds % 10;			// Jesli seconds = 48 dostajemy num = 8
-				}
+				num = seconds % 10;		// Jesli seconds = 48 dostajemy num = 8
 			else
-				{
-					num = seconds;
-				}
+				num = seconds;
+				
 			P3OUT = displayedNum[num];
 			P2OUT = numOfDisplay[refresh_id];
 			refresh_id++;
@@ -225,9 +230,10 @@ __interrupt void Timer_B0 (void)
 		case 3:		// Odswiez dziesiatki sekund
 		{
 			if (seconds >=10)
-			  num = seconds/10;		// Jesli seconds = 48 dostajemy num = 4
+				num = seconds/10;		// Jesli seconds = 48 dostajemy num = 4
 			else
-			  num = 0;
+				num = 0;
+			
 			P3OUT = displayedNum[num];
 			P2OUT = numOfDisplay[refresh_id];
 			refresh_id = 0;
@@ -237,10 +243,32 @@ __interrupt void Timer_B0 (void)
 	}
 }
 
+// Timer B1 do odswiezania liczb na ekranie
+#pragma vector=TIMERB1_VECTOR
+__interrupt void Timer_B1 (void)
+{
+	P4OUT |= StopButton[num];
+	num++;
+	if(num > 7)
+	{
+		TBCCTL1 = OUTMOD_5;	// Resetuje Timer_B1
+		TBCCTL1 &= ~CCIE;	// Blokuje przerwania Timer_B1
+		TBCCTL1 &= ~CCIFG;	// Resetuje flage przewania
+	}
+}
+
+void waitForActivation()
+{
+	num = 0;
+	TBCCTL1 |= CCIE;			// Odblokowanie przerwan Timer_B0
+	TBCTL |= TASSEL_1 + ID_0 + MC_1;	//32768 Hz -> 1s
+	TBCCR1 = CLOCK_B_HZ/4;			// Licznik liczy co 1/4 sekundy
+}
+
 void getRandomData()
 {
 //	srand(time(NULL));
-	randomTime = 1 + (rand() % 4);	// otrzymamy czas w sekundach
+	randomTime = 1 + (rand() % 4);		// otrzymamy czas w sekundach
 	randomTime *= CLOCK_A_HZ; 		// Trzeba pomnozyc czas w sekundach zeby otrzymac w Hz dla zegara
 	numOfButton = 0;
 //	numOfButton = rand() % 7;		// Przyciski do stopowania od 0 do 6
