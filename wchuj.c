@@ -2,6 +2,7 @@
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 //-----------------------------------------------------------------
 void getRandomData();
@@ -18,6 +19,16 @@ void disableStopwatch();
 
 void waitForActivation();
 
+void setLED_refresh();
+
+void resetVariables();
+
+void resetTimer_B();
+
+void waitForPopButton();
+
+void eliminateOscilations();
+
 //-----------------------------------------------------------------
 volatile int CLOCK_A_HZ;		// Do przechowania aktualnej czestosci zegara
 volatile long CLOCK_B_HZ;
@@ -33,10 +44,14 @@ volatile int miliseconds;	// Setne liczone przez stoper
 volatile int refresh_id;	// Do wybierania który segment wyswietlacza odswiezamy
 unsigned const int numOfDisplay[] = {0xFE, 0xFD, 0xFB, 0xF7};						// Do wyboru segmentu wyswietlacza
 unsigned const int displayedNum[] = {0xF0, 0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8, 0xF9};	// Do wyswietlania konkretnego numeru
+unsigned const int displayedNum_dot[] = {0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77, 0x78, 0x79};	// Do wyswietlania konkretnego numeru
 volatile int num;		// Zmienna pomocnicza
 
 volatile int TIMER_A_INTERR_MODE;
 volatile int TIMER_B_INTERR_MODE;
+volatile int P1_INTERR_MODE;
+
+volatile bool oscilateFlag = false;
 
 //-----------------------------------------------------------------
 
@@ -58,7 +73,6 @@ void system_init(void)
 	P2OUT |= 0xFF;			// Gaszenie wszystkich segmentów wyswietlacza
 	P3OUT |= 0xFF;			//
 	P4OUT &= 0x00;			// Gaszenie diod
-
 }
 
 void initTimers()
@@ -73,6 +87,20 @@ void initTimers()
 	miliseconds = 0;
 }
 
+void resetVariables()
+{
+	numOfButton = 0;
+	refresh_id  = 0;
+	seconds 	= 0;
+	miliseconds = 0;
+	TIMER_A_INTERR_MODE = 0;
+	TIMER_B_INTERR_MODE = 0;
+	P4OUT = 0x00;
+	P1IFG = 0x00;
+	P1IE = 0x80;
+
+}
+
 //-----------------------------------------------------------------
 
 int main(void)
@@ -81,34 +109,81 @@ int main(void)
 	initTimers();
 	getRandomData();
 
+	volatile int flag;
+
 	while(1)
 	{
 		__enable_interrupt();
 		__bis_SR_register(LPM3_bits + GIE);
-	}
 
+		if(oscilateFlag)
+		{
+			eliminateOscilations()
+		}
+	}
 }
 
+void eliminateOscilations()
+{
+	for(int i = 20000; i > 0; i--);
+
+　
+　
+	waitForPopButton();
+}
+
+void waitForPopButton()
+{
+	volatile int flag = 1;
+
+	while(flag)
+	{
+		if(!(P1IN & BIT7))
+			flag = 0;
+	}
+}
 
 #pragma vector=PORT1_VECTOR
 __interrupt void Port_1(void)
 {
-	if( !(P1IN & BIT7))		// Poczatkowe uruchamianie licznika - od tego momentu liczenie losowych sekund
+	if( !(P1IN & BIT7) & (P1_INTERR_MODE == 0))		// Poczatkowe uruchamianie licznika - od tego momentu liczenie losowych sekund
 	{
 		setTimer_A0();
 		P1IFG &= 0x00;		// Wyzerowanie flag przerwan P1
 		P1IE  &= ~BIT7;		// Zablokowanie przerwan na P1.7
+		setLED_refresh();
+
+		P1_INTERR_MODE = 1;
 	}
-	else 					// moze trzeba jakis jeszcze warunek
+	else if(P1_INTERR_MODE == 1)			// moze trzeba jakis jeszcze warunek
 	{
 		disableStopwatch();
-		waitForActivation();
 
-		P1IFG &= 0x80;		// Wyzerowanie flag przerwan przycisków P1.0 - P1.6
-		P1IE  &= 0x80;		// Zablokowanie przerwan na P1.0 - P1.6
+	//------------------------------
+
+	//	waitForActivation();
+
+　
+　
+	//	P1IFG &= 0x80;		// Wyzerowanie flag przerwan przycisków P1.0 - P1.6
+	//	P1IE  &= 0x80;		// Zablokowanie przerwan na P1.0 - P1.6
 
 		P1IE  |= BIT7;		// Odblokowanie przerwan na P1.7
+		P1_INTERR_MODE = 3;
 	}
+	else if( !(P1IN & BIT7) & (P1_INTERR_MODE == 3))
+	{
+		resetVariables();
+		resetTimer_B();
+		P2OUT = 0xFF;
+
+		P1_INTERR_MODE = 0;
+		//zablokuj przerwania
+		P1IE &= ~BIT7;
+
+		oscilateFlag = true;
+	}
+	P1IFG &= 0x00;			// Wyzerowanie flag przerwan P1
 }
 
 void setTimer_A0()
@@ -116,6 +191,15 @@ void setTimer_A0()
 	TACTL |= TASSEL_1 + ID_1 + MC_1;	// 16384 Hz -> 1s
 	TACCR0 = CLOCK_A_HZ* 2;				// Licznik liczy do tego losowego czasu
 	TACCTL0 |= CCIE;					// Odblokowanie przerwan Timer_A0
+}
+
+void setLED_refresh()
+{
+	// Timer B do wyswietlania - odswiezanie diod
+		TIMER_B_INTERR_MODE = 0;
+		TBCTL |= TASSEL_1 + ID_0 + MC_1;	// 32768 Hz -> 1s
+		TBCCR0 = CLOCK_B_HZ/440;			// Licznik liczy co 1/200 sekundy
+		TBCCTL0 |= CCIE;					// Odblokowanie przerwan Timer_B0
 }
 
 void setStopwatch()
@@ -126,25 +210,22 @@ void setStopwatch()
 	TACCR0 = CLOCK_A_HZ/100;			// Licznik liczy co 1/100 sekundy
 	TACCTL0 |= CCIE;					// Odblokowanie przerwan Timer_A1
 
-	// Timer B do wyswietlania - odswiezanie diod
-	TIMER_B_INTERR_MODE = 0;
-	TBCTL |= TASSEL_1 + ID_0 + MC_1;	// 32768 Hz -> 1s
-	TBCCR0 = CLOCK_B_HZ/440;			// Licznik liczy co 1/200 sekundy
-	TBCCTL0 |= CCIE;					// Odblokowanie przerwan Timer_B0
-
+　
+　
 	// Odblokowanie przycisku do zatrzymywania
 }
 
 void setStopButton()
 {
 	// Odblokowanie przycisku do zatrzymywania stopera
+	P1IFG = 0;
 	P1IE  = StopButton[numOfButton];	// Odblokowanie przerwania
 	P4OUT = StopButton[numOfButton];	// Zaswiecenie diody odpowiadajacej przyciskowi
 }
 
 // Timer A0 odlicza poczatkowy losowy czas
 #pragma vector=TIMERA0_VECTOR
-__interrupt void Timer_A0 (void)
+__interrupt void Timer_A (void)
 {
 	if(TIMER_A_INTERR_MODE == 0)		// TIMER A0
 	{
@@ -261,10 +342,10 @@ __interrupt void Timer_B1 (void)
 void waitForActivation()
 {
 	num = 0;
-	TIMER_B_INTERR_MODE = 1;
-	TBCCTL0 |= CCIE;					// Odblokowanie przerwan Timer_B0
-	TBCTL |= TASSEL_1 + ID_0 + MC_1;	//32768 Hz -> 1s
-	TBCCR0 = CLOCK_B_HZ/4;				// Licznik liczy co 1/4 sekundy
+//	TIMER_B_INTERR_MODE = 1;
+//	TBCCTL0 |= CCIE;					// Odblokowanie przerwan Timer_B0
+//	TBCTL |= TASSEL_1 + ID_0 + MC_1;	//32768 Hz -> 1s
+//	TBCCR0 = CLOCK_B_HZ/4;				// Licznik liczy co 1/4 sekundy
 }
 
 void getRandomData()
@@ -278,11 +359,19 @@ void getRandomData()
 
 void disableStopwatch()
 {
-	// Zerowanie timera A1
- 	TACCTL0 = OUTMOD_5;	// Resetuje Timer_A1
-	TACCTL0 &= ~CCIE;	// Blokuje przerwania Timer_A1
+	// Zerowanie timera A0
+ 	TACCTL0 = OUTMOD_5;	// Resetuje Timer_A0
+	TACCTL0 &= ~CCIE;	// Blokuje przerwania Timer_A0
 	TACCTL0 &= ~CCIFG;	// Resetuje flage przewania
 
+	// Zerowanie timera B0
+//	TBCCTL0 = OUTMOD_5;	// Resetuje Timer_B0
+//	TBCCTL0 &= ~CCIE;	// Blokuje przerwania Timer_B0
+//	TBCCTL0 &= ~CCIFG;	// Resetuje flage przewania
+}
+
+void resetTimer_B()
+{
 	// Zerowanie timera B0
 	TBCCTL0 = OUTMOD_5;	// Resetuje Timer_B0
 	TBCCTL0 &= ~CCIE;	// Blokuje przerwania Timer_B0
