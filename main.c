@@ -151,7 +151,6 @@ void setTimer_A2()
 void prepareCounterB_ForRefresh()
 {
 	// Timer B do wyswietlania - odswiezanie diod
-	TIMER_B_INTERR_MODE = 0;
 	TBCCR0 = CLOCK_B_HZ / 440;			// Licznik liczy co 1/440 sekundy
 	TBCCTL0 |= CCIE;					// Odblokowanie przerwan Timer_B0
 }
