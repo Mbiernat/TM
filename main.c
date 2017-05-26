@@ -23,7 +23,7 @@ void initSystem()
 	P3DIR |= 0xFF;			// Port3 - output - wyswietlacz sterowanie
 	P4DIR |= 0xFF;     		// Port4 - output - diody
 
-	P2OUT |= 0xFF;			// Gaszenie wszystkich segmentów wyswietlacza
+	P2OUT |= 0xFF;			// Gaszenie wszystkich segmentÃ³w wyswietlacza
 	P3OUT |= 0xFF;			//
 	P4OUT &= 0x00;			// Gaszenie diod
 }
@@ -31,28 +31,23 @@ void initSystem()
 void initTimers()
 {
 	TACTL |= TASSEL_1 + ID_1 + MC_1;	// 16384 Hz -> 1s
-	TBCTL |= TASSEL_1 + ID_0 + MC_1;	//32768 Hz -> 1s
+	TBCTL |= TBSSEL_1 + ID_0 + MC_1;	//32768 Hz -> 1s
 
 	CLOCK_A_HZ = 16384;
 	CLOCK_B_HZ = 32768;
 
-	seconds = 0;
-	miliseconds = 0;
+	seconds = miliseconds = 0;
 
 	setTimer_A2();
 
 	srand(time(NULL));
 }
 
+
 void resetVariables()
 {
-	numOfButton = 0;
-	refresh_id  = 0;
-	seconds 	= 0;
-	miliseconds = 0;
-	TIMER_A_INTERR_MODE = WAIT_FOR_ACTIVATION;
-	P4OUT = 0x00;
-	P1IFG = 0x00;
+	seconds = refresh_id  = numOfButton = miliseconds = 0;
+	P4OUT = P1IFG = 0x00;
 	P1IE = 0x80;
 }
 
@@ -100,23 +95,26 @@ __interrupt void Port_1(void)
 	{
 		getRandomData();
 		setTimer_A0();
-		P1IFG &= 0x00;		// Wyzerowanie flag przerwan P1
 		P1IE  &= ~BIT7;		// Zablokowanie przerwan na P1.7
 
 		prepareCounterB_ForRefresh();
 
 		P1_INTERR_MODE = STOP_TIMER;
 	}
-	else if(P1_INTERR_MODE == 1)			// moze trzeba jakis jeszcze warunek
+	else if(P1_INTERR_MODE == 1)
 	{
 		resetTimer(&TACCTL0);
 
 		P1IE  |= BIT7;		// Odblokowanie przerwan na P1.7
+
 		P1_INTERR_MODE = 3;
 	}
 	else if( !(P1IN & BIT7) && (P1_INTERR_MODE == 3))
 	{
 		resetVariables();
+
+		TIMER_A_INTERR_MODE = WAIT_FOR_ACTIVATION;
+
 		resetTimer(&TBCCTL0);
 		P2OUT = 0xFF;
 
@@ -138,8 +136,6 @@ void setTimer_A0()
 {
 	TACCTL0 &= ~CCIFG; // resey flagi przerwan
 	TIMER_A_INTERR_MODE = RANDOMTIME; //
-	TACTL = TACLR; // wyzeruj timer
-	TACTL |= TASSEL_1 + ID_1 + MC_1;	// 16384 Hz -> 1s
 	TACCR0 = CLOCK_A_HZ * 2;			// Licznik liczy do tego losowego czasu
 	TACCTL0 |= CCIE;					// Odblokowanie przerwan Timer_A0
 }
@@ -148,7 +144,6 @@ void setTimer_A2()
 {
 	TACCTL0 &= ~CCIFG;
 	TIMER_A_INTERR_MODE = WAIT_FOR_ACTIVATION;
-	TACTL |= TASSEL_1 + ID_1 + MC_1;	// 16384 Hz -> 1s
 	TACCR0 = CLOCK_A_HZ/ 4;				// Licznik liczy do tego losowego czasu
 	TACCTL0 |= CCIE;					// Odblokowanie przerwan Timer_A0
 }
@@ -157,7 +152,6 @@ void prepareCounterB_ForRefresh()
 {
 	// Timer B do wyswietlania - odswiezanie diod
 	TIMER_B_INTERR_MODE = 0;
-	TBCTL |= TASSEL_1 + ID_0 + MC_1;	// 32768 Hz -> 1s
 	TBCCR0 = CLOCK_B_HZ / 440;			// Licznik liczy co 1/440 sekundy
 	TBCCTL0 |= CCIE;					// Odblokowanie przerwan Timer_B0
 }
@@ -166,7 +160,6 @@ void prepareTimerA_ForCount()
 {
 	// Timer A0 do liczenia
 	TIMER_A_INTERR_MODE = COUNT;			// Zmiana roli dla Timer_A0
-	TACTL |= TASSEL_1 + ID_1 + MC_1;	// 16384 Hz -> 1s
 	TACCR0 = CLOCK_A_HZ / 100;			// Licznik liczy co 1/100 sekundy
 	TACCTL0 |= CCIE;					// Odblokowanie przerwan Timer_A1
 	// Odblokowanie przycisku do zatrzymywania
@@ -176,8 +169,7 @@ void setStopButton()
 {
 	// Odblokowanie przycisku do zatrzymywania stopera
 	P1IFG = 0;
-	P1IE  = BUTTONS[numOfButton];	// Odblokowanie przerwania
-	P4OUT = BUTTONS[numOfButton];	// Zaswiecenie diody odpowiadajacej przyciskowi
+	P1IE = P4OUT = BUTTONS[numOfButton];	// Odblokowanie przerwania i Zaswiecenie diody odpowiadajacej przyciskowi
 }
 
 // Timer A0 odlicza poczatkowy losowy czas
@@ -186,9 +178,7 @@ __interrupt void Timer_A (void)
 {
 	if(TIMER_A_INTERR_MODE == RANDOMTIME)		// TIMER A0
 	{
-	//	TACCTL0 = OUTMOD_5;	// Resetuje Timer_A0
 		TACCTL0 &= ~CCIE;	// Blokuje przerwania Timer_A0
-		TACCTL0 &= ~CCIFG;	// Resetuje flage przewania
 		prepareTimerA_ForCount();
 		setStopButton();
 	}
@@ -210,11 +200,11 @@ __interrupt void Timer_A (void)
 	else if(TIMER_A_INTERR_MODE == WAIT_FOR_ACTIVATION)	// TIMER A2
 	{
 		P4OUT = BUTTONS[num];
-		num++;
-		if(num > 7)
+		if(++num > 7)
 			num = 0;
-		TACCTL0 &= ~CCIFG;	// Resetuje flage przerwania
 	}
+
+	TACCTL0 &= ~CCIFG;	// Resetuje flage przerwania
 }
 
 // Timer B0 do odswiezania liczb na ekranie
@@ -225,51 +215,38 @@ __interrupt void Timer_B0 (void)
 	{
 		case 0:		// Odswiez setne sekundy
 		{
-			num = miliseconds % 10;				// Jesli miliseconds = 48 dostajemy num = 8
-			P3OUT = displayedNum[num];			// Wybór liczby do wyswietlenia na segment wyswietlacza
-			P2OUT = numOfDisplay[refresh_id];	// Wybór segmentu wyswietlacza
-			refresh_id++;
+			refreshDisplay(miliseconds);
 			break;
 		}
 		case 1:		// Odswiez dziesietne sekundy
 		{
-			num = (miliseconds/10) % 10;		// Jesli miliseconds = 48 dostajemy num = 4
-			P3OUT = displayedNum[num];
-			P2OUT = numOfDisplay[refresh_id];
-			refresh_id++;
+			refreshDisplay(miliseconds/10);	// Jesli miliseconds = 48 dostajemy num = 4
 			break;
 		}
 		case 2:		// Odswiez sekundy
 		{
-			num = seconds % 10;					// Jesli seconds = 48 dostajemy num = 8
-			P3OUT = displayedNum[num];
+			refreshDisplay(seconds % 10); // Jesli seconds = 48 dostajemy num = 8
 			P3OUT &= 0x7F;						// Dodanie kropki po liczbie sekund
-			P2OUT = numOfDisplay[refresh_id];
-			refresh_id++;
 			break;
 		}
 		case 3:		// Odswiez dziesiatki sekund
 		{
-			num = (seconds / 10) % 10;				// Jesli seconds = 48 dostajemy num = 4
-			P3OUT = displayedNum[num];
-			P2OUT = numOfDisplay[refresh_id];
+			refreshDisplay((seconds / 10) % 10); // Jesli seconds = 48 dostajemy num = 4
 			refresh_id = 0;
 			break;
 		}
-
-		default:	{ refresh_id = 0;	break; }
 	}
 }
 
-void waitForActivation()
+void refreshDisplay(int segment)
 {
-	num = 0;
+	P3OUT = displayedNum[segment % 10];
+	P2OUT = numOfDisplay[refresh_id++];
 }
 
 void getRandomData()
 {
-	randomTime = 1 + (rand() % 5);		// otrzymamy czas w sekundach
-	randomTime *= CLOCK_A_HZ; 		// Trzeba pomnozyc czas w sekundach zeby otrzymac w Hz dla zegara
+	randomTime = (1 + (rand() % 5)) * CLOCK_A_HZ;		// otrzymamy czas w sekundach, Trzeba pomnozyc czas w sekundach zeby otrzymac w Hz dla zegara
 	numOfButton = rand() % 7;		// Przyciski do stopowania od 0 do 6
 }
 
