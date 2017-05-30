@@ -47,7 +47,6 @@ volatile int miliseconds;	// Setne liczone przez stoper
 volatile int refresh_id;	// Do wybierania który segment wyswietlacza odswiezamy
 unsigned const int numOfDisplay[] = {0xFE, 0xFD, 0xFB, 0xF7};						// Do wyboru segmentu wyswietlacza
 unsigned const int displayedNum[] = {0xF0, 0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8, 0xF9};	// Do wyswietlania konkretnego numeru
-unsigned const int displayedNum_dot[] = {0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77, 0x78, 0x79};	// Do wyswietlania konkretnego numeru
 volatile int num;		// Zmienna pomocnicza
 
 volatile int TIMER_A_INTERR_MODE;
