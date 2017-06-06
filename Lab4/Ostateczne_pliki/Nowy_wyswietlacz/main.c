@@ -26,6 +26,7 @@ void initSystem()
 	P2OUT = 0x00;			// Gaszenie wszystkich segmentów wyswietlacza
 	P3OUT = 0x00;			//
 	P4OUT = 0x00;			// Gaszenie diod
+
 }
 
 void initTimers()
@@ -46,7 +47,7 @@ void initTimers()
 
 void resetVariables()
 {
-	seconds = refresh_id  = numOfButton = miliseconds = 0;
+	seconds = refresh_id = word_id = numOfButton = miliseconds = 0;
 	P4OUT = P1IFG = 0x00;
 	P1IE = 0x80;
 }
@@ -99,6 +100,8 @@ __interrupt void Port_1(void)
 
 		prepareCounterB_ForRefresh();
 
+		word_id = 0;
+
 		P1_INTERR_MODE = STOP_TIMER;
 	}
 	else if(P1_INTERR_MODE == 1)
@@ -108,6 +111,11 @@ __interrupt void Port_1(void)
 		P1IE  |= BIT7;		// Odblokowanie przerwan na P1.7
 
 		P1_INTERR_MODE = 3;
+
+		if(seconds < 2)
+			word_id = 1;
+		else
+			word_id = 2;
 	}
 	else if( !(P1IN & BIT7) && (P1_INTERR_MODE == 3))
 	{
@@ -125,6 +133,8 @@ __interrupt void Port_1(void)
 		oscilateFlag = true; // eliminate oscilations
 
 		setTimer_A2();
+
+		word_id = 0;
 
 		LPM3_EXIT; // chcemy wyeliminowac drgania stykow zeby nie przeszedl od razu do pierwszego if w tym przerwaniu
 	}
@@ -151,7 +161,7 @@ void setTimer_A2()
 void prepareCounterB_ForRefresh()
 {
 	// Timer B do wyswietlania - odswiezanie diod
-	TBCCR0 = CLOCK_B_HZ / 440;			// Licznik liczy co 1/440 sekundy
+	TBCCR0 = CLOCK_B_HZ / 880;			// Licznik liczy co 1/440 sekundy
 	TBCCTL0 |= CCIE;					// Odblokowanie przerwan Timer_B0
 }
 
@@ -191,6 +201,7 @@ __interrupt void Timer_A (void)
 				resetTimer(&TACCTL0); // zeby nie liczyl w nieskonczonosc jak ktos odszedl od miernika
 				P1IE  |= BIT7;		// Odblokowanie przerwan na P1.7
 				P1_INTERR_MODE = 3;
+				word_id = 3;
 			}
 		}
 
@@ -214,7 +225,7 @@ __interrupt void Timer_B0 (void)
 	{
 		case 0:		// Odswiez setne sekundy
 		{
-			refreshDisplay(miliseconds);
+			refreshDisplay(miliseconds % 10);
 			break;
 		}
 		case 1:		// Odswiez dziesietne sekundy
@@ -230,7 +241,51 @@ __interrupt void Timer_B0 (void)
 		}
 		case 3:		// Odswiez dziesiatki sekund
 		{
-			refreshDisplay((seconds / 10) % 10); // Jesli seconds = 48 dostajemy num = 4
+			refreshDisplay(seconds / 10); // Jesli seconds = 48 dostajemy num = 4
+			break;
+		}
+		case 4:
+		{
+			switch(word_id)
+			{
+				case 0:	refreshDisplay(10); break;
+				case 1: refreshDisplay(13); break;
+				case 2: refreshDisplay(10); break;
+				case 3:	refreshDisplay(15); break;
+			}
+			break;
+		}
+		case 5:
+		{
+			switch(word_id)
+			{
+				case 0:	refreshDisplay(10); break;
+				case 1: refreshDisplay(12); break;
+				case 2: refreshDisplay(13); break;
+				case 3: refreshDisplay(17); break;
+			}
+			break;
+		}
+		case 6:
+		{
+			switch(word_id)
+			{
+				case 0:	refreshDisplay(10); break;
+				case 1: refreshDisplay(12); break;
+				case 2: refreshDisplay(15); break;
+				case 3: refreshDisplay(16); break;
+			}
+			break;
+		}
+		case 7:
+		{
+			switch(word_id)
+			{
+				case 0:	refreshDisplay(10); break;
+				case 1: refreshDisplay(11); break;
+				case 2: refreshDisplay(14); break;
+				case 3: refreshDisplay(13); break;
+			}
 			refresh_id = 0;
 			break;
 		}
@@ -239,7 +294,8 @@ __interrupt void Timer_B0 (void)
 
 void refreshDisplay(int segment)
 {
-	P3OUT = displayedNum[segment % 10];
+	P2OUT = 0;
+	P3OUT = displayedSymb[segment];
 	P2OUT = numOfDisplay[refresh_id++];
 }
 
