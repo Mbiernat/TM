@@ -128,15 +128,15 @@ __interrupt void Port_1(void)
 
 		P1_INTERR_MODE = SWITCH_ON;
 
-		P1IE &= ~BIT7; //zablokuj przerwania
+		P1IE &= ~BIT7; 		//zablokuj przerwania
 
-		oscilateFlag = true; // eliminate oscilations
+		oscilateFlag = true; 	// eliminate oscilations
 
 		setTimer_A2();
 
 		word_id = 0;
 
-		LPM3_EXIT; // chcemy wyeliminowac drgania stykow zeby nie przeszedl od razu do pierwszego if w tym przerwaniu
+		LPM3_EXIT; 		// chcemy wyeliminowac drgania stykow zeby nie przeszedl od razu do pierwszego if w tym przerwaniu
 	}
 
 	P1IFG &= 0x00;			// Wyzerowanie flag przerwan P1
@@ -144,10 +144,10 @@ __interrupt void Port_1(void)
 
 void setTimer_A0()
 {
-	TACCTL0 &= ~CCIFG; // resey flagi przerwan
-	TIMER_A_INTERR_MODE = RANDOMTIME; //
-	TACCR0 = CLOCK_A_HZ * 2;			// Licznik liczy do tego losowego czasu
-	TACCTL0 |= CCIE;					// Odblokowanie przerwan Timer_A0
+	TACCTL0 &= ~CCIFG; 			// reset flagi przerwan
+	TIMER_A_INTERR_MODE = RANDOMTIME; 
+	TACCR0 = CLOCK_A_HZ * 2;		// Licznik liczy do tego losowego czasu
+	TACCTL0 |= CCIE;			// Odblokowanie przerwan Timer_A0
 }
 
 void setTimer_A2()
@@ -155,14 +155,14 @@ void setTimer_A2()
 	TACCTL0 &= ~CCIFG;
 	TIMER_A_INTERR_MODE = WAIT_FOR_ACTIVATION;
 	TACCR0 = CLOCK_A_HZ/ 4;				// Licznik liczy do tego losowego czasu
-	TACCTL0 |= CCIE;					// Odblokowanie przerwan Timer_A0
+	TACCTL0 |= CCIE;				// Odblokowanie przerwan Timer_A0
 }
 
 void prepareCounterB_ForRefresh()
 {
 	// Timer B do wyswietlania - odswiezanie diod
 	TBCCR0 = CLOCK_B_HZ / 880;			// Licznik liczy co 1/440 sekundy
-	TBCCTL0 |= CCIE;					// Odblokowanie przerwan Timer_B0
+	TBCCTL0 |= CCIE;				// Odblokowanie przerwan Timer_B0
 }
 
 void prepareTimerA_ForCount()
@@ -170,7 +170,7 @@ void prepareTimerA_ForCount()
 	// Timer A0 do liczenia
 	TIMER_A_INTERR_MODE = COUNT;			// Zmiana roli dla Timer_A0
 	TACCR0 = CLOCK_A_HZ / 100;			// Licznik liczy co 1/100 sekundy
-	TACCTL0 |= CCIE;					// Odblokowanie przerwan Timer_A1
+	TACCTL0 |= CCIE;				// Odblokowanie przerwan Timer_A1
 	// Odblokowanie przycisku do zatrzymywania
 }
 
@@ -185,20 +185,20 @@ void setStopButton()
 #pragma vector=TIMERA0_VECTOR
 __interrupt void Timer_A (void)
 {
-	if(TIMER_A_INTERR_MODE == RANDOMTIME)		// TIMER A0
+	if(TIMER_A_INTERR_MODE == RANDOMTIME)	// TIMER A0
 	{
-		TACCTL0 &= ~CCIE;	// Blokuje przerwania Timer_A0
+		TACCTL0 &= ~CCIE;		// Blokuje przerwania Timer_A0
 		prepareTimerA_ForCount();
 		setStopButton();
 	}
-	else if(TIMER_A_INTERR_MODE == COUNT)							// TIMER A1
+	else if(TIMER_A_INTERR_MODE == COUNT)	// TIMER A1
 	{
 		if(++miliseconds > 99)
 		{
 			miliseconds = 0;
 			if(++seconds >= 10)
 			{
-				resetTimer(&TACCTL0); // zeby nie liczyl w nieskonczonosc jak ktos odszedl od miernika
+				resetTimer(&TACCTL0); 	// zeby nie liczyl w nieskonczonosc jak ktos odszedl od miernika
 				P1IE  |= BIT7;		// Odblokowanie przerwan na P1.7
 				P1_INTERR_MODE = 3;
 				word_id = 3;
@@ -235,57 +235,33 @@ __interrupt void Timer_B0 (void)
 		}
 		case 2:		// Odswiez sekundy
 		{
-			refreshDisplay(seconds % 10); // Jesli seconds = 48 dostajemy num = 8
-			P3OUT |= 0x80;						// Dodanie kropki po liczbie sekund
+			refreshDisplay(seconds % 10); 	// Jesli seconds = 48 dostajemy num = 8
+			P3OUT |= 0x80;			// Dodanie kropki po liczbie sekund
 			break;
 		}
 		case 3:		// Odswiez dziesiatki sekund
 		{
-			refreshDisplay(seconds / 10); // Jesli seconds = 48 dostajemy num = 4
+			refreshDisplay(seconds / 10); 	// Jesli seconds = 48 dostajemy num = 4
 			break;
 		}
 		case 4:
 		{
-			switch(word_id)
-			{
-				case 0:	refreshDisplay(10); break;
-				case 1: refreshDisplay(13); break;
-				case 2: refreshDisplay(10); break;
-				case 3:	refreshDisplay(15); break;
-			}
+			refreshDisplay(10);
 			break;
 		}
 		case 5:
 		{
-			switch(word_id)
-			{
-				case 0:	refreshDisplay(10); break;
-				case 1: refreshDisplay(12); break;
-				case 2: refreshDisplay(13); break;
-				case 3: refreshDisplay(17); break;
-			}
+			refreshDisplay(10);
 			break;
 		}
 		case 6:
 		{
-			switch(word_id)
-			{
-				case 0:	refreshDisplay(10); break;
-				case 1: refreshDisplay(12); break;
-				case 2: refreshDisplay(15); break;
-				case 3: refreshDisplay(16); break;
-			}
+			refreshDisplay(10);
 			break;
 		}
 		case 7:
 		{
-			switch(word_id)
-			{
-				case 0:	refreshDisplay(10); break;
-				case 1: refreshDisplay(11); break;
-				case 2: refreshDisplay(14); break;
-				case 3: refreshDisplay(13); break;
-			}
+			refreshDisplay(10);
 			refresh_id = 0;
 			break;
 		}
@@ -295,14 +271,21 @@ __interrupt void Timer_B0 (void)
 void refreshDisplay(int segment)
 {
 	P2OUT = 0;
-	P3OUT = displayedSymb[segment];
+	if(refresh_id > 4 && word_id > 0)
+		switch(word_id)
+			case 1: displayedSymb(refresh_id+word_id+1); break;
+			case 2: displayedSymb(refresh_id+word_id+2); break;
+			case 3: displayedSymb(refresh_id+word_id+4); break;
+	else
+		P3OUT = displayedSymb[segment];
+		
 	P2OUT = numOfDisplay[refresh_id++];
 }
 
 void getRandomData()
 {
-	randomTime = (1 + (rand() % 5)) * CLOCK_A_HZ;		// otrzymamy czas w sekundach, Trzeba pomnozyc czas w sekundach zeby otrzymac w Hz dla zegara
-	numOfButton = rand() % 7;		// Przyciski do stopowania od 0 do 6
+	randomTime = (1 + (rand() % 5)) * CLOCK_A_HZ;	// otrzymamy czas w sekundach, Trzeba pomnozyc czas w sekundach zeby otrzymac w Hz dla zegara
+	numOfButton = rand() % 7;			// Przyciski do stopowania od 0 do 6
 }
 
 void resetTimer(volatile unsigned int *timer)
