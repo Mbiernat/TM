@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include "headers/lab4.h"
 
-enum TIMER_A_INTERR_MODE {RANDOMTIME, COUNT, WAIT_FOR_ACTIVATION};
+enum TIMER_A_INTERR_MODE {RANDOMTIME, COUNT, ELIMINATE_OSCILATIONS};
 enum P1_INTERR_MODE {SWITCH_ON, STOP_TIMER, SWITCH_OFF};
 
 // Inicjalizacja programu
@@ -26,6 +26,9 @@ void initSystem()
 	P2OUT = 0x00;			// Gaszenie wszystkich segmentów wyswietlacza
 	P3OUT = 0x00;			//
 	P4OUT = 0x00;			// Gaszenie diod
+	int i;
+	for(i=0; i<8; i++)
+		displayBuffer[i]=0x00;
 
 }
 
@@ -47,9 +50,14 @@ void initTimers()
 
 void resetVariables()
 {
+	int i;
+	for(i=0; i<8; i++)
+			displayBuffer[i]=0x00;
+
 	seconds = refresh_id = word_id = numOfButton = miliseconds = 0;
 	P4OUT = P1IFG = 0x00;
 	P1IE = 0x80;
+
 }
 
 //-----------------------------------------------------------------
@@ -65,44 +73,6 @@ int main(void)
 		__enable_interrupt();
 		__bis_SR_register(LPM3_bits + GIE);
 
-		if(isMilisecondChanged)
-		{
-			changeBuffer(1);
-			isMilisecondChanged = false;
-		}
-		if(isSecondChanged)
-		{
-			changeBuffer(2);
-			isSecondChanged = false;
-		}
-		if(wordChanged && word_id > 0)
-		{
-			changeBuffer(3);
-			wordChanged = false;
-		}
-
-		if(oscilateFlag)
-		{
-			eliminateOscilations();
-
-			P1IE |= BIT7;
-
-			oscilateFlag = false;
-		}
-	}
-}
-
-void changeBuffer(int flag1)
-{
-	switch(flag1)
-	{
-		case 1:
-		{
-			dislpayBuffer[0] = miliseconds % 10;
-			displayBuffer[1] = miliseconds / 10;
-		}
-		case 2:
-		case 3:
 	}
 }
 
@@ -122,10 +92,13 @@ void eliminateOscilations()
 #pragma vector=PORT1_VECTOR
 __interrupt void Port_1(void)
 {
+
 	if( !(P1IN & BIT7) & (P1_INTERR_MODE == 0))		// Poczatkowe uruchamianie licznika - od tego momentu liczenie losowych sekund
 	{
 		getRandomData();
 		setTimer_A0();
+		for(k=0;k<4;k++)	displayBuffer[k] = displayedSymb[0];
+		displayBuffer[2] |= 0x80;
 		P1IE  &= ~BIT7;		// Zablokowanie przerwan na P1.7
 
 		prepareCounterB_ForRefresh();
@@ -143,15 +116,26 @@ __interrupt void Port_1(void)
 		P1_INTERR_MODE = 3;
 
 		if(seconds < 2)
-			word_id = 1;
+		{
+			displayBuffer[4] = displayedSymb[13];
+			displayBuffer[5] = displayedSymb[12];
+			displayBuffer[6] = displayedSymb[12];
+			displayBuffer[7] = displayedSymb[11];
+		}
+
 		else
-			word_id = 2;
+			{
+			displayBuffer[4] = displayedSymb[10];
+			displayBuffer[5] = displayedSymb[13];
+			displayBuffer[6] = displayedSymb[15];
+			displayBuffer[7] = displayedSymb[14];
+			}
 	}
 	else if( !(P1IN & BIT7) && (P1_INTERR_MODE == 3))
 	{
 		resetVariables();
 
-		TIMER_A_INTERR_MODE = WAIT_FOR_ACTIVATION;
+		TIMER_A_INTERR_MODE = ELIMINATE_OSCILATIONS;
 
 		resetTimer(&TBCCTL0);
 		P2OUT = 0x00;
@@ -177,14 +161,14 @@ void setTimer_A0()
 	TACCTL0 &= ~CCIFG; 			// reset flagi przerwan
 	TIMER_A_INTERR_MODE = RANDOMTIME;
 	TACCR0 = CLOCK_A_HZ * 2;		// Licznik liczy do tego losowego czasu
-	TACCTL0 |= CCIE;			// Odblokowanie przerwan Timer_A0
+	TACCTL0 |= CCIE;				// Odblokowanie przerwan Timer_A0
 }
 
 void setTimer_A2()
 {
 	TACCTL0 &= ~CCIFG;
-	TIMER_A_INTERR_MODE = WAIT_FOR_ACTIVATION;
-	TACCR0 = CLOCK_A_HZ/ 4;				// Licznik liczy do tego losowego czasu
+	TIMER_A_INTERR_MODE = ELIMINATE_OSCILATIONS;
+	TACCR0 = CLOCK_A_HZ/ 1000;			// Licznik liczy do tego losowego czasu
 	TACCTL0 |= CCIE;				// Odblokowanie przerwan Timer_A0
 }
 
@@ -224,33 +208,57 @@ __interrupt void Timer_A (void)
 	else if(TIMER_A_INTERR_MODE == COUNT)	// TIMER A1
 	{
 		miliseconds++;
-		dislpayBuffer[0] = miliseconds % 10;
-		displayBuffer[1] = miliseconds / 10;
-
+		displayBuffer[0] = displayedSymb[miliseconds % 10];
+		displayBuffer[1] = displayedSymb[miliseconds / 10];
+		displayBuffer[3] = displayedSymb[0];
 		if(miliseconds > 99)
 		{
-			dislpayBuffer[2] = seconds % 10;	//!!!!!!!!!!!!!!!!!!!!!!!
-			dislpayBuffer[3] = seconds / 10;	//!!!!!!!!!!!!!!!!!!!!!!!
+			seconds++;
+			displayBuffer[2] = displayedSymb[seconds % 10] + 0x80;	//!!!!!!!!!!!!!!!!!!!!!!!
 			miliseconds = 0;
-			if(++seconds >= 10)
+			if(seconds >= 10)
 			{
-				isSecondChanged = true;		//!!!!!!!!!!!!!!!!!!!!!!!!//!!!!!!!!!!!!!!!!!!!!!!!!//!!!!!!!!!!!!!!!!!!!!!!!!//!!!!!!!!!!!!!!!!!!!!!!!!
+				displayBuffer[0] = displayedSymb[0];
+				displayBuffer[1] = displayedSymb[0];
+				displayBuffer[2] = displayedSymb[0] + 0x80;
+				displayBuffer[3] = displayedSymb[1];
+				displayBuffer[4] = displayedSymb[15];
+				displayBuffer[5] = displayedSymb[17];
+				displayBuffer[6] = displayedSymb[16];
+				displayBuffer[7] = displayedSymb[13];
+
 				resetTimer(&TACCTL0); 	// zeby nie liczyl w nieskonczonosc jak ktos odszedl od miernika
-				P1IE  |= BIT7;		// Odblokowanie przerwan na P1.7
+				P1IE  |= BIT7;			// Odblokowanie przerwan na P1.7
 				P1_INTERR_MODE = 3;
 				word_id = 3;
 			}
 
 		}
-		LPM3_EXIT;						//!!!!!!!!!!!!!!!!!!!!!!!!//!!!!!!!!!!!!!!!!!!!!!!!!//!!!!!!!!!!!!!!!!!!!!!!!!//!!!!!!!!!!!!!!!!!!!!!!!!
 
 		TACCTL1 &= ~CCIFG;	// Resetuje flage przewania
 	}
-	else if(TIMER_A_INTERR_MODE == WAIT_FOR_ACTIVATION)	// TIMER A2
+	else if(TIMER_A_INTERR_MODE == ELIMINATE_OSCILATIONS)	// TIMER A3
 	{
-		P4OUT = BUTTONS[num];
-		if(++num > 7)
-			num = 0;
+		oscilateFlag_prev = oscilateFlag;
+		if(!(P1IN & BIT7))
+		{
+			oscilateFlag = true;
+			if (oscilateFlag_prev == oscilateFlag)
+			{
+				P1IE |= BIT7;
+				oscilateFlag = oscilateFlag_prev = false;
+			}
+		}
+		else
+			oscilateFlag = false;
+
+		if(tick++ > 250)
+		{
+			P4OUT = BUTTONS[num];
+			if(++num > 7)
+				num = 0;
+			tick = 0;
+		}
 	}
 
 	TACCTL0 &= ~CCIFG;	// Resetuje flage przerwania
@@ -260,76 +268,14 @@ __interrupt void Timer_A (void)
 #pragma vector=TIMERB0_VECTOR
 __interrupt void Timer_B0 (void)
 {
-
+	P3OUT = 0x00;
 	P2OUT = numOfDisplay[refresh_id];
 	P3OUT = displayBuffer[refresh_id++];
+	if (refresh_id == 8)
+		refresh_id = 0;
 
-
-
-
-
-
-
-	switch(refresh_id)
-	{
-		case 0:		// Odswiez setne sekundy
-		{
-			refreshDisplay(miliseconds % 10);
-			break;
-		}
-		case 1:		// Odswiez dziesietne sekundy
-		{
-			refreshDisplay(miliseconds/10);	// Jesli miliseconds = 48 dostajemy num = 4
-			break;
-		}
-		case 2:		// Odswiez sekundy
-		{
-			refreshDisplay(seconds % 10); 	// Jesli seconds = 48 dostajemy num = 8
-			P3OUT |= 0x80;			// Dodanie kropki po liczbie sekund
-			break;
-		}
-		case 3:		// Odswiez dziesiatki sekund
-		{
-			refreshDisplay(seconds / 10); 	// Jesli seconds = 48 dostajemy num = 4
-			break;
-		}
-		case 4:
-		{
-			refreshDisplay(10);
-			break;
-		}
-		case 5:
-		{
-			refreshDisplay(10);
-			break;
-		}
-		case 6:
-		{
-			refreshDisplay(10);
-			break;
-		}
-		case 7:
-		{
-			refreshDisplay(10);
-			refresh_id = 0;
-			break;
-		}
-	}
 }
 
-void refreshDisplay(int segment)
-{
-	P2OUT = 0;
-	if(refresh_id > 4 && word_id > 0)
-		switch(word_id)
-			case 1: displayedSymb(refresh_id+word_id+1); break;
-			case 2: displayedSymb(refresh_id+word_id+2); break;
-			case 3: displayedSymb(refresh_id+word_id+4); break;
-	else
-		P3OUT = displayedSymb[segment];
-
-	P2OUT = numOfDisplay[refresh_id++];
-}
 
 void getRandomData()
 {
@@ -344,3 +290,4 @@ void resetTimer(volatile unsigned int *timer)
 	*timer &= ~CCIE;	// Blokuje przerwania Timer_B0
 	*timer &= ~CCIFG;	// Resetuje flage przewania
 }
+
