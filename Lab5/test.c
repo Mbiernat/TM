@@ -10,25 +10,6 @@ const short int refresh = 64; //  32678Hz
 
 void initUart()
 {
-//	while(!(UTXE1 & UTXIFG1));
-//    // zewnetrzny kwarc zeby dzialal bardzo szybko
-//    // BCSCTL1 &= ~XT2OFF; // XT2 on
-//    //BCSCTL2  = SELS; // wybiera XT2CLK bazujący na zewnętrznym kwarcu i daje na SMCLK source XT2CLK
-//
-//	U0BR1 = 0x00;
-//	U0BR0 = 0x03;
-//	U0MCTL = 0x4A;
-//
-//    //piny 3.4 i  3.5 jako we/wy TX/RX
-//    P3SEL |= 0x30; // druga funkcja pinow
-//
-//    U0CTL = SWRST | CHAR; // USART control register, 271 manual
-//    U0TCTL |= SSEL0; // ACLK
-//    ME1 = URXE0 | UTXE0; // mozna odbierac  module enable register
-//    U0CTL &= ~SWRST;
-//
-//    IE1 |= URXIE0 | UTXIE0; // przerwania od odbierania
-
 	UCTL0 |= SWRST;
 
     TACTL = MC_1 | ID_0 | TASSEL_1; //clock init ACLK, mode Up, no divider.
